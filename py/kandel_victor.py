@@ -41,14 +41,9 @@ def random_rotation(seq: str, k: int, *, m: int | None = None) -> str:
     return rotated
 
 
-def back_ran_walk(einv,vertex,vertexes,T,beta):     
-        
-    # Select a random element
-    random_element = random.choice(einv[vertex])
-
-    # Remove the selected element
-    einv[vertex].remove(random_element)  
-
+def back_ran_walk(einv,vertex,vertexes,T,beta):    
+    random_element = random.choice(einv[vertex]) 
+    einv[vertex].remove(random_element)   
     if T[random_element[1:] ]:
         pass
     else:
@@ -60,16 +55,11 @@ def back_ran_walk(einv,vertex,vertexes,T,beta):
 def random_seq(einv,vertex,T):     
         
     if einv[vertex]:
-        # Select a random element
-        random_element = random.choice(einv[vertex])
-
-        # Remove the selected element
+        # TODO:better to do once instead of each time the function it is call
+        random_element = random.choice(einv[vertex]) 
         einv[vertex].remove(random_element)  
-    elif T[vertex]:
-        # Select a random element
-        random_element = T[vertex][0] 
-
-        # Remove the selected element
+    elif T[vertex]: 
+        random_element = T[vertex][0]  
         T[vertex].remove(random_element)  
     else:
         raise "Error"
@@ -78,18 +68,11 @@ def random_seq(einv,vertex,T):
     return random_element[1:] 
 
 def victor_algorithm(seq: str, k: int):
-    """victor algorithm for generating a uniform random permutation of seq.
-
-    1. Construct the digraph D_k(seq) from klet counts.
-    2. If seq is cyclic...
-    """
+    """victor algorithm for generating a uniform random permutation of seq."""
     len_seq = len(seq)
     assert k < len_seq
 
-    # 1. Construct D_k
-    # eord = defaultdict(list)
-    # for chunk in chunkify_cons(seq, k):
-    #     eord[chunk[: k - 1]].append(chunk[1:])
+    # 1. Construct D_k 
     eord = edge_ordering(seq, k) 
     einv = edge_ordering(seq[::-1], k) 
     vertexes = eord.keys()
@@ -102,10 +85,7 @@ def victor_algorithm(seq: str, k: int):
     else:
     # If acyclic, add dummy edge.
         fst = seq[: k - 1]
-        lst = seq[-(k - 1) :]
-        #dummy_vertex = f"X{fst}"
-        #dummy_vertex = f"{lst}{fst}"
-        #eord[lst].append(dummy_vertex)
+        lst = seq[-(k - 1) :] 
     
     # 3. 
       
@@ -146,7 +126,7 @@ def victor_algorithm(seq: str, k: int):
 
 
     pprint(seq_perm)  
-    same_klets(seq_perm, seq, k)
+    assert same_klets(seq_perm, seq, k)
 
 
 def main():
