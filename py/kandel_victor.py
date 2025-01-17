@@ -1,94 +1,152 @@
-from collections import Counter
+"""Swap and euler algorithms.
 
+Shuffling biological sequences
+- https://www.sciencedirect.com/science/article/pii/S0166218X97814564
+"""
+
+# from constants import S1
+import random
+from utils import same_klets
 from altschul import edge_ordering
-from kandel_victor import victor_algorithm
-from constants import S1, S2, S3, S4
-from utils import same_klets, same_klons
+from pprint import pprint
+import random
 
 
-def test_altschul_sequences():
-    assert same_klets(S1, S2, 2)
-    assert same_klets(S1, S3, 2) and same_klets(S1, S3, 3)
-    assert same_klets(S1, S4, 2) and same_klons(S1, S4, 3)
+def is_k_cyclic(seq: str, k: int) -> bool:
+    """Does no check if k makes sense."""
+    return seq[: (k - 1)] == seq[-(k - 1) :]
 
 
-def test_edge_ordering():
-    assert len(edge_ordering(S1, 3)) == 16
+def random_rotation(seq: str, k: int, *, m: int | None = None) -> str:
+    """Preserves k-lets.
+
+    Note that this is not a proper rotation. It does not
+    conserve the characters of the sequence.
+
+    m can be passed as an int for testing.
+    """
+    assert is_k_cyclic(seq, k)
+
+    n = len(seq)
+    if m is None:
+        m = random.randint(k, n)
+    assert k <= m <= n
+
+    rotated = seq[m - 1 :] + seq[k - 1 : m]
+    for i in range(m + 1, m + k - 1):
+        idx = i if i <= n else i % n + k - 1
+        rotated += seq[idx - 1]
+
+    assert same_klets(seq, rotated, k)
+
+    return rotated
 
 
-def brute_force_possible_permutations(seq: str, k: int):
-    """Get naively all the permutations with same k-lets."""
-    import itertools
+def back_ran_walk(einv, vertex, T, beta):
+    # TODO:better to do once instead of each time the function it is call
+    random_element = random.choice(einv[vertex])
+    # einv[vertex].remove(random_element)
 
-    all_doublet_perserving_permutations = set()
-    for perm in itertools.permutations(seq):
-        perm = "".join(perm)
-        if same_klets(perm, seq, k):
-            all_doublet_perserving_permutations.add(perm)
-    print(all_doublet_perserving_permutations)
+    if not T[random_element[1:]] and random_element[1:] != beta:
+        T[random_element[1:]].append(random_element)
 
-def brute_force_possible_combination(seq: str, k: int):
-    """Get naively all the permutations with same k-lets."""
-    from itertools import product
-    combinations = [''.join(p) for p in product('ATCG', repeat=len(seq))]
-    all_doublet_perserving_permutations = set()
-    for perm in combinations:
-        perm = "".join(perm)
-        if same_klets(perm, seq, k):
-            all_doublet_perserving_permutations.add(perm)
-    return(all_doublet_perserving_permutations)
+    return random_element[1:]
 
 
-def test_altschul_klet_uniform():
-    """Test that all of possible k-let preserving permutations are found."""
-    seq = "ACTAGTAT"
+def random_seq(eord, vertex, T):
+    if eord[vertex]:
+        # TODO:better to do once instead of each time the function it is call
+        random_element = random.choice(eord[vertex])
+        eord[vertex].remove(random_element)
+    elif T[vertex]:
+        random_element = T[vertex][0]
+        T[vertex].remove(random_element)
+    else:
+        raise "Error"
 
-    # Set of all possible permutations found with:
-    # brute_force_possible_permutations(seq)
-    # all_perms = {
-    #     "AGTACTAT",
-    #     "ACTAGTAT",
-    #     "ATAGTACT",
-    #     "ATACTAGT",
-    #     "AGTATACT",
-    #     "ACTATAGT",
-    # }
-    all_perms = brute_force_possible_combination(seq,2)
-    _test_altschul_klet_uniform(seq, all_perms, 2)
-
-    seq = "AAATAAA"
-    # all_perms = {
-    #     "AAAATAA",
-    #     "AATAAAA",
-    #     "AAATAAA",
-    # }
-    all_perms = brute_force_possible_combination(seq,3)
-    _test_altschul_klet_uniform(seq, all_perms, 3)
-
-    seq = "AAAATAAAA"
-    # all_perms = {
-    #     "AAAAATAAA",
-    #     "AAATAAAAA",
-    #     "AAAATAAAA",
-    # }
-    all_perms = brute_force_possible_combination(seq,4)
-    _test_altschul_klet_uniform(seq, all_perms, 4)
+    return random_element[1:]
 
 
-def _test_altschul_klet_uniform(seq: str, all_perms: set[str], k: int):
-    cnt = Counter()
-    max_iterations = 5000
-    for _ in range(max_iterations):
-        res = victor_algorithm(seq, k)
-        cnt[res] += 1
-        # assert same_klets(seq, res, 1)
-        assert same_klets(seq, res, k)
+def victor_algorithm(seq: str, k: int):
+    """victor algorithm for generating a uniform random permutation of seq."""
+    len_seq = len(seq)
+    assert k < len_seq
 
-    for perm, amount in cnt.items():
-        assert perm in all_perms
-        assert abs(amount / max_iterations - 1 / len(all_perms)) < 0.05
+    # 1. Construct D_k
+    eord = edge_ordering(seq, k)
+    einv = edge_ordering(seq[::-1], k)
 
-    remaining = set(cnt.keys()) - all_perms
-    assert len(remaining) == 0
+    # 2. If cyclic, random rotation.
+    if is_k_cyclic(seq, k):
+        rot = random_rotation(seq, k)
+        fst = rot[0 : k - 1]
+        lst = rot[0 : k - 1]
+    else:
+        # If acyclic, add dummy edge.
+        fst = seq[: k - 1]
+        lst = seq[-(k - 1) :]
 
-brute_force_possible_combination("AAATAAA",3)
+    # 3.
+    inv_T = {i: [] for i in einv.keys()}
+    vertex = lst[::-1]
+    flag = True
+    step = 0
+    while flag:  # change into raise error
+        # print("vertex:",vertex)
+        # print("T:",inv_T,lst[::-1] )
+        # print("einv",einv)
+        vertex = back_ran_walk(einv, vertex, inv_T, lst[::-1])
+        cond = [inv_T[vertex] for vertex in einv.keys() if vertex != lst[::-1]]
+        # print("cond",cond)
+        flag = not all(cond)
+        step += 1
+        # if step==len_seq:
+        #     break #should be rise error
+
+    # b
+    T = {}
+    for i in inv_T.keys():
+        for value in inv_T[i]:
+            edge = value[::-1]
+            node = edge[: k - 1]
+            if node in T:
+                T[node].append(edge)
+            else:
+                T[node] = [edge]
+
+    # 4
+    for v in eord.keys():
+        random.shuffle(eord[v])
+
+    # 5
+    # a remove arc of eord in T
+    for i in eord.keys():
+        if i != lst:
+            eord[i].remove(T[i][0])
+    # b
+    vertex = fst
+    seq_perm = vertex
+    step = 0
+    while step <= len_seq - k:  # change into raise error
+        vertex = random_seq(eord, vertex, T)
+        seq_perm += vertex[-1]
+        step += 1
+
+    assert same_klets(seq_perm, seq, k)
+    return(seq_perm)
+
+
+def main():
+    S1 = "GTTGCGAAGCCTACACTGATATATGAATCCAAGCTAGAGCAGGGCTCTTAAAATTCGGAGTTGTAGATGCTCAATACTCCAATCGGTTTTTTCGTGCGTT"
+    S1 = "ATCAGCATGCCGTATC"
+    print(S1)
+    victor_algorithm(S1, 2)
+    victor_algorithm(S1, 3)
+    victor_algorithm(S1, 4)
+    # test if uniform
+    # check T
+    # test linearity of the algo
+
+
+if __name__ == "__main__":
+    main()
